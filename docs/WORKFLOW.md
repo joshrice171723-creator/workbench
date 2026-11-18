@@ -1,6 +1,12 @@
 # Task workflow
 
-Run the commands below from the project directory after `setup init`. The installed launcher is `ruby .harness/bin/harness`. Keep configuration and review drafts under `.harness` so that editing a draft does not change the application snapshot.
+Run the commands below from the project directory after `setup init`. Define `harness` in your PowerShell session.
+
+```powershell
+function harness { ruby .harness/bin/harness @args }
+```
+
+If you use an existing Codex or RubyMine Air session, the agent runs the commands and asks you for missing decisions. If you use the terminal directly, run the commands in order as you complete each stage. Keep configuration and review drafts under `.harness` so that editing a draft does not change the application snapshot.
 
 ## Configure a check
 
@@ -80,14 +86,25 @@ Use **Full configuration JSON** in Project setup if you prefer to paste the prep
 3. Read the listed questions and option effects. Record the user's answer for each required question. Use `notes` for context. Only an explicit valid option records a permission. The program records supplied answers and cannot authenticate who gave them.
 4. Read the generated agreement. A schema change requires both the applicable code and migration permissions and ownership of the affected schema. A dependency change must be necessary to the agreed work. A separate external contract requires its own authorization.
 
+Start the audit and list its questions.
+
 ```powershell
-ruby .harness/bin/harness audit --project . --action "Review the inventory total" --scope "stock.rb and its public callers"
-ruby .harness/bin/harness internal questions --project .
-# Example for a user who explicitly denied changes to application code.
-ruby .harness/bin/harness internal answer code_changes deny --project .
-# Record the user's other choices the same way, using the listed question and option IDs.
-ruby .harness/bin/harness task prompt --project .
+harness audit --project . --action "Review the inventory total" --scope "stock.rb and its callers"
+harness internal questions --project .
 ```
+
+Record each answer after the user decides. This example confirms the scope and harness. It denies code, schema, and dependency changes.
+
+```powershell
+harness internal answer scope_confirmed confirmed --project .
+harness internal answer code_changes deny --project .
+harness internal answer migrations deny --project .
+harness internal answer dependencies deny --project .
+harness internal answer engine_integration confirmed --project .
+harness task prompt --project .
+```
+
+`task prompt` prints the instructions for the agent. Use those instructions for the agreed work.
 
 The five required IDs are `scope_confirmed`, `code_changes`, `migrations`, `dependencies`, and `engine_integration`. Confirm scope and engine integration explicitly. Choose `deny` or `allow_scoped` for code changes and `deny` or `allow` for migrations and dependencies. Audit requires `code_changes=deny`. Each new task starts with fresh answers. A CLI caller can also pass `--file` to a mode with a JSON object of explicit user decisions keyed by these IDs.
 
@@ -106,24 +123,36 @@ The task records CLI, form, and chat answers with their entry channel. The local
 
 ## Run, review and finish
 
-Run baseline checks on the starting source. If a task needs a benchmark, run its configured baseline before editing. Run ordinary checks with `internal run` and measured checks with `internal benchmark`.
+Run the baseline check before the work. This example uses `stock_behavior` from the configuration above. Replace that name with your configured check.
 
 ```powershell
-ruby .harness/bin/harness internal run stock_behavior --phase baseline --project .
-# Perform the inspection or agreed change. Then repeat the behavior check.
-ruby .harness/bin/harness internal run stock_behavior --phase after --project .
-ruby .harness/bin/harness task status --project .
+harness internal run stock_behavior --phase baseline --project .
+```
+
+Perform the audit or the agreed changes. Then run the same check on the final source and read the task status.
+
+```powershell
+harness internal run stock_behavior --phase after --project .
+harness task status --project .
 ```
 
 For a configured benchmark, substitute `internal benchmark --phase baseline` and `internal benchmark --phase after` with the same `--project .`. Record failed attempts. The first executed check freezes the execution configuration and permission choices. A passing baseline is required for the after phase of a two-phase check. Correct a failed prerequisite or report the outstanding issue. A later source change invalidates after evidence for the old snapshot.
 
-Review the actual final files and outputs. Copy `.harness/templates/REVIEW.json` to `.harness/review.json`. Fill in the current `snapshot_sha256` from status, the verdict, and evidence for each criterion. For a criterion marked `not_applicable`, supply its reason and evidence. Record the review as `author: agent`. Confirm a finding against the source before repairing it. Record each repair with `task repair-round --project . --reason "Specific finding"` before editing. The default budget is three rounds. The last allowed round can still run verification and finish. Requesting a further round stops the task.
+The agent reviews the final files and check results. It can copy the template below to start its review. It records the current `snapshot_sha256` from status, the verdict, and evidence for each criterion. For a criterion marked `not_applicable`, it gives the reason and evidence. It records its review as `author: agent`.
 
 ```powershell
-ruby .harness/bin/harness internal review --project . --file .harness/review.json
-ruby .harness/bin/harness task verify --project .
-ruby .harness/bin/harness task report --project .
-ruby .harness/bin/harness task finish --project .
+Copy-Item .harness/templates/REVIEW.json .harness/review.json
+```
+
+Confirm a finding against the source before repairing it. Record each repair with `task repair-round --project . --reason "Specific finding"` before editing. The default limit is three rounds. The last allowed round can still run verification and finish. Requesting a further round stops the task.
+
+Submit the completed review, verify the current source, and generate the report. Run `task finish` after verification passes.
+
+```powershell
+harness internal review --project . --file .harness/review.json
+harness task verify --project .
+harness task report --project .
+harness task finish --project .
 ```
 
 Completion requires current passing checks and a structured agent review. The runtime validates hashes, evidence shape and configured gates. The reviewer remains responsible for the accuracy of its evidence. Report the action, constraints, verification and remaining issues. Identify who performed any independent review or human acceptance.

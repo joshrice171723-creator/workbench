@@ -156,6 +156,20 @@ harness setup configure --project . --file .harness/proposed.json
 harness setup check-engine --project .
 ```
 
+## Use an existing Codex or RubyMine session
+
+Open your project in Codex or RubyMine Air. Give the agent your task in the regular chat. This path needs no Workbench server. [Project agent setup](docs/AGENT_ADAPTER.md#use-another-project-agent)
+
+> Use Workbench to audit the inventory total in `stock.rb` and its callers. Read `.harness/docs/WORKFLOW.md`. Ask me for any missing task decisions.
+
+| Stage | What you do | What the agent does |
+| --- | --- | --- |
+| Agree on the task | Describe the work and answer any remaining scope or permission questions. | Start the task, record your answers, and read the task instructions. |
+| Run the task | Answer questions if the scope or permissions need to change. | Run the baseline checks, do the agreed work, and run the final checks. |
+| Finish | Read the result. | Record the review and its evidence. Report what passed and what remains open. Finish only when the required checks pass. |
+
+[Optional Workbench chat setup](docs/AGENT_ADAPTER.md#start-a-task-through-chat) explains how to start a separate Workbench-managed session.
+
 ## Use the CLI directly
 
 Choose the mode that matches the request.
@@ -167,39 +181,14 @@ Choose the mode that matches the request.
 | `feature` | Implement the agreed change in behavior. |
 | `build` | Build from the requirements you provide. |
 
-For a read-only audit, start the task and inspect the questions.
+Use this path when you want to start a task from PowerShell. These commands start a read-only audit and list the decisions Workbench needs.
 
 ```powershell
 harness audit --project . --action "Review the inventory total" --scope "stock.rb and its callers"
 harness internal questions --project .
-harness internal answer scope_confirmed confirmed --project .
-harness internal answer code_changes deny --project .
-harness internal answer migrations deny --project .
-harness internal answer dependencies deny --project .
-harness internal answer engine_integration confirmed --project .
-harness task prompt --project .
 ```
 
-Confirm the engine choice after you check the configured instructions. Run the baseline and final checks. Record a review tied to the current source.
-
-```powershell
-harness internal run stock_behavior --phase baseline --project .
-harness internal run stock_behavior --phase after --project .
-Copy-Item .harness/templates/REVIEW.json .harness/review.json
-notepad .harness/review.json
-harness internal review --project . --file .harness/review.json
-harness task verify --project .
-harness task report --project .
-harness task finish --project .
-```
-
-Enter the current source fingerprint in the review. Give each criterion a verdict and evidence. The workflow guide also explains how to pin your own harness and configure a benchmark. [Task workflow](docs/WORKFLOW.md)
-
-## Use an existing Codex or RubyMine session
-
-Use the existing agent if it can read project files and run terminal commands. Point it to the installed `.harness/docs/WORKFLOW.md`. The agent uses the direct CLI commands to read the questions, record your answers, and run checks. Use the regular chat in that session. It uses the session’s model and permissions. It needs no Workbench server. [Project agent setup](docs/AGENT_ADAPTER.md#use-another-project-agent)
-
-[Optional Workbench chat setup](docs/AGENT_ADAPTER.md#start-a-task-through-chat) explains how to start a separate Workbench-managed session.
+Record the decisions before you run the checks. `harness task prompt --project .` prints the task instructions for the agent. The manual walkthrough shows how to record the answers, run checks before and after the work, save the agent's review, and finish the task. [Manual CLI walkthrough](docs/WORKFLOW.md#agree-on-the-task)
 
 ## Read evidence from past runs
 
