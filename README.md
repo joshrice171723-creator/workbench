@@ -1,11 +1,11 @@
 # Apex Workbench
 
-Apex Workbench coordinates coding tasks from a terminal or a Codex chat. It records the task scope, project rules, user decisions, checks, reviews, and repair rounds in the project.
+Apex Workbench coordinates coding tasks from a terminal or its built-in chat. It records the task scope, project rules, user decisions, checks, reviews, and repair rounds in the project.
 
 Use the bundled engineering instructions or pin a different coding harness. The harness defines how the agent should work. Workbench records which instructions apply and checks the evidence required to finish.
 
 - **CLI** to configure a project, start tasks, run checks, and compare past runs.
-- **Chat** to agree on a task, answer questions, and work with Codex in the same session.
+- **Workbench chat** to answer task questions and work with the Codex session Workbench starts.
 
 ## How it works
 
@@ -157,33 +157,40 @@ harness setup configure --project . --file .harness/proposed.json
 harness setup check-engine --project .
 ```
 
-## Use chat
+## Use Workbench chat
 
-Start the local server in one terminal. The command is named `ui`. The server also handles terminal chat, so a browser is optional.
+Workbench chat runs on your computer. It starts a Codex session for the task. Send replies from the **Agent chat** box or from PowerShell. Both ways use the same task and answers.
+
+Start the server from the project folder.
 
 ```powershell
 harness ui --project . --port 8792
 ```
 
-In a second terminal, open the project directory and define `harness` as shown above. Send a task mode and action.
+### Option A · Type in Workbench chat
+
+Open [Workbench](http://127.0.0.1:8792/) and select **Agent chat**. Type `refactor Simplify the inventory total`. Wait for each question before you send the next reply.
+
+| When Workbench asks | Type this reply |
+| --- | --- |
+| Which files or behavior are in scope? | `stock.rb and its callers` |
+| Confirm the action and scope. | `confirmed` |
+| May this task change app code? | `allow_scoped` |
+| May this task change the schema? | `deny` |
+| May this task change dependencies? | `deny` |
+| Confirm the configured coding harness. | `confirmed` |
+
+### Option B · Send the same message from PowerShell
+
+Open a second terminal in the project folder. Define `harness` as shown in the install section. Use `--message` to send the text that you would type in the chat box. Run each command when you reach its matching step.
 
 ```powershell
 harness chat --project . --message "/help"
 harness chat --project . --message "refactor Simplify the inventory total"
-```
-
-Send the affected scope when chat asks for it. Reply with a listed option for each question. Suggested answers grant no permission. To record an existing restriction, cite its exact text and source.
-
-For example, reply to the scope question with `stock.rb and its callers`. Then send these answers in order. This example allows changes to the agreed code and keeps the schema and dependencies fixed.
-
-```powershell
 harness chat --project . --message "stock.rb and its callers"
-harness chat --project . --message "confirmed"
-harness chat --project . --message "allow_scoped"
-harness chat --project . --message "deny"
-harness chat --project . --message "deny"
-harness chat --project . --message "confirmed"
 ```
+
+For the remaining questions, put the matching answer from the table in `--message`. For example, run `harness chat --project . --message "allow_scoped"` when Workbench asks about app changes. Suggested answers grant no permission.
 
 After the agreement is complete, ordinary messages go to the configured Codex agent. The installed default is Astra 6.2 High. Use the same chat endpoint to continue the task.
 
@@ -197,7 +204,7 @@ After the agreement is complete, ordinary messages go to the configured Codex ag
 | `/verify`, `/report`, or `/finish` | Verify evidence, read the report, or finish the task. |
 | `/pause REASON`, `/resume ID`, or `/stop REASON` | Control the current task. |
 
-Pass each command as a `--message`. Replace `stock_behavior` with your check name. Use `/benchmark after` to repeat the same benchmark after a change. [Chat setup and model access](docs/AGENT_ADAPTER.md)
+Enter these commands in Workbench chat. From PowerShell, send each one with `--message`. Replace `stock_behavior` with your check name. Use `/benchmark after` to repeat the same benchmark after a change. [Chat setup and model access](docs/AGENT_ADAPTER.md)
 
 ## Use the CLI directly
 
@@ -237,6 +244,10 @@ harness task finish --project .
 ```
 
 Enter the current source fingerprint in the review. Give each criterion a verdict and evidence. The workflow guide also explains how to pin your own harness and configure a benchmark. [Task workflow](docs/WORKFLOW.md)
+
+## Use an existing Codex or RubyMine session
+
+Use the existing agent if it can read project files and run terminal commands. Point it to the installed `.harness/docs/WORKFLOW.md`. The agent uses the direct CLI commands to read the questions, record your answers, and run checks. Continue speaking to the agent as usual. This route uses the model and permissions of that session. [Project agent setup](docs/AGENT_ADAPTER.md#use-another-project-agent)
 
 ## Read evidence from past runs
 
