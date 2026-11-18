@@ -20,16 +20,16 @@ flowchart TD
     Work --> Final["Request final checks and any configured benchmark"]
     Final --> Review{"Do required checks and review pass?"}
     Review -->|Yes| Finish["Verify, report, and finish"]
-    Review -->|No| Limit{"Is another repair round available?"}
-    Limit -->|Yes| Repair["Record the finding and request a repair"]
+    Review -->|No| Limit{"Below the repair limit?<br/>3 rounds by default<br/>Configurable from 1 to 20"}
+    Limit -->|Yes| Repair["Record one repair round and request the fix"]
     Repair --> Work
-    Limit -->|No| Stop["Stop and report the remaining findings"]
+    Limit -->|No| Stop["Stop the task and report the remaining findings"]
     Baseline -.-> Records["Project .harness records"]
     Final -.-> Records
     Finish -.-> Records
 ```
 
-The diagram shows the task sequence. The CLI and your coding agent use the same checks. Each check or benchmark starts when you or the agent runs its command. Workbench records the results and counts repair rounds. The default limit is three.
+The CLI and your coding agent use the same checks. Each check or benchmark starts when you or the agent runs its command. Set `execution.max_repair_rounds` before starting the task. If checks still fail after the last allowed repair, Workbench stops the task when another repair round is requested.
 
 ### Proposed score target
 
