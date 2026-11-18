@@ -15,13 +15,36 @@ You can also pass `--codex` with the native executable's path to the UI launcher
 
 ## Start a task through chat
 
-Open **Agent chat** or use a second terminal connected to the same server. From the project, send one message per call. Use the address printed by the server when running on a different port.
+Workbench chat opens its own Codex session. To work in your existing session, see [Use another project agent](#use-another-project-agent). To use built-in chat, start the local server as described above. Then choose how to send messages.
+
+### Use PowerShell chat
+
+Open a second terminal at the project root. Define `harness` in that terminal. The browser can stay closed.
 
 ```powershell
-ruby .harness/bin/harness chat --project . --url http://127.0.0.1:8792 --message "/help"
-ruby .harness/bin/harness chat --project . --url http://127.0.0.1:8792 --message "audit Review the inventory total"
-ruby .harness/bin/harness chat --project . --url http://127.0.0.1:8792 --message "stock.rb and its public callers"
+function harness { ruby .harness/bin/harness @args }
+harness chat --project . --message "/help"
+harness chat --project . --message "refactor Simplify the inventory total"
 ```
+
+Use `--url` with the server's local address if you changed the port. Send each answer below in `--message`. For example, run `harness chat --project . --message "allow_scoped"` when Workbench asks about app changes.
+
+### Use the optional browser
+
+Open [Workbench](http://127.0.0.1:8792/) and select **Agent chat**. Type `refactor Simplify the inventory total`.
+
+### Answer each question
+
+Wait for each question. In the browser, type only the reply. In PowerShell, pass it as the value of `--message`.
+
+| When Workbench asks | Example reply |
+| --- | --- |
+| Which files or behavior are in scope? | `stock.rb and its callers` |
+| Confirm the action and scope. | `confirmed` |
+| May this task change app code? | `allow_scoped` |
+| May this task change the schema? | `deny` |
+| May this task change dependencies? | `deny` |
+| Confirm the configured coding harness. | `confirmed` |
 
 On a project without an installation, first send `/setup` from the browser or the package launcher. Use `/discover` and configure at least one meaningful project check in **Project setup** or with the Ruby CLI.
 

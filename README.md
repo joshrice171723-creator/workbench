@@ -1,19 +1,18 @@
 # Apex Workbench
 
-Apex Workbench coordinates coding tasks from a terminal or its built-in chat. It records the task scope, project rules, user decisions, checks, reviews, and repair rounds in the project.
+Apex Workbench coordinates coding tasks from a terminal or an existing coding-agent session. It records the task scope, project rules, user decisions, checks, reviews, and repair rounds in the project.
 
 Use the bundled engineering instructions or pin a different coding harness. The harness defines how the agent should work. Workbench records which instructions apply and checks the evidence required to finish.
 
 - **CLI** to configure a project, start tasks, run checks, and compare past runs.
-- **Workbench chat** to answer task questions and work with the Codex session Workbench starts.
+- **Existing agent session** to ask Codex or RubyMine Air to use the same workflow. [Use an existing session](#use-an-existing-codex-or-rubymine-session)
 
 ## How it works
 
 ```mermaid
 flowchart TD
     CLI["CLI command"] --> Workflow["Ruby task workflow"]
-    Chat["Chat command"] --> Server["Local chat server"]
-    Server --> Workflow
+    Chat["Existing coding-agent session"] --> CLI
     Engine["Pinned coding harness"] --> Agreement["Record the task agreement"]
     Workflow --> Agreement
     Agreement --> Baseline["Request baseline checks and any configured benchmark"]
@@ -30,7 +29,7 @@ flowchart TD
     Finish -.-> Records
 ```
 
-The diagram shows the task sequence. Chat and CLI call the same checks. Each check or benchmark starts when you or the agent runs its command. Workbench records the results and counts repair rounds. The default limit is three.
+The diagram shows the task sequence. The CLI and your coding agent use the same checks. Each check or benchmark starts when you or the agent runs its command. Workbench records the results and counts repair rounds. The default limit is three.
 
 ### Proposed score target
 
@@ -114,7 +113,7 @@ Chat accepts the exact answer ID or the option label. `Revise the scope` means c
 
 ## Install in a project
 
-The Windows release was tested with Ruby 3.4.10 and Python 3.11.15. Use Ruby 3.1 or later. Chat also needs Python and a signed-in Codex CLI. Use the CLI workflow without a chat server to run checks and review records.
+Use Ruby 3.1 or later. The Windows release was tested with Ruby 3.4.10. Direct CLI use needs no Workbench server.
 
 From the Workbench directory, install it into your project. Replace the example path with your project folder.
 
@@ -157,55 +156,6 @@ harness setup configure --project . --file .harness/proposed.json
 harness setup check-engine --project .
 ```
 
-## Use Workbench chat
-
-Workbench chat runs on your computer. It starts a Codex session for the task. Send replies from the **Agent chat** box or from PowerShell. Both ways use the same task and answers.
-
-Start the server from the project folder.
-
-```powershell
-harness ui --project . --port 8792
-```
-
-### Option A · Type in Workbench chat
-
-Open [Workbench](http://127.0.0.1:8792/) and select **Agent chat**. Type `refactor Simplify the inventory total`. Wait for each question before you send the next reply.
-
-| When Workbench asks | Type this reply |
-| --- | --- |
-| Which files or behavior are in scope? | `stock.rb and its callers` |
-| Confirm the action and scope. | `confirmed` |
-| May this task change app code? | `allow_scoped` |
-| May this task change the schema? | `deny` |
-| May this task change dependencies? | `deny` |
-| Confirm the configured coding harness. | `confirmed` |
-
-### Option B · Send the same message from PowerShell
-
-Open a second terminal in the project folder. Define `harness` as shown in the install section. Use `--message` to send the text that you would type in the chat box. Run each command when you reach its matching step.
-
-```powershell
-harness chat --project . --message "/help"
-harness chat --project . --message "refactor Simplify the inventory total"
-harness chat --project . --message "stock.rb and its callers"
-```
-
-For the remaining questions, put the matching answer from the table in `--message`. For example, run `harness chat --project . --message "allow_scoped"` when Workbench asks about app changes. Suggested answers grant no permission.
-
-After the agreement is complete, ordinary messages go to the configured Codex agent. The installed default is Astra 6.2 High. Use the same chat endpoint to continue the task.
-
-| Chat command | Use it to |
-| --- | --- |
-| `/status` or `/runs` | Read the active task or list past task IDs. |
-| `/check stock_behavior baseline` | Run the configured check before editing. |
-| `/benchmark baseline` | Run the configured benchmark before editing. |
-| `/check stock_behavior after` | Repeat the check on the current source. |
-| `/repair REASON` | Record a verified finding before a repair. |
-| `/verify`, `/report`, or `/finish` | Verify evidence, read the report, or finish the task. |
-| `/pause REASON`, `/resume ID`, or `/stop REASON` | Control the current task. |
-
-Enter these commands in Workbench chat. From PowerShell, send each one with `--message`. Replace `stock_behavior` with your check name. Use `/benchmark after` to repeat the same benchmark after a change. [Chat setup and model access](docs/AGENT_ADAPTER.md)
-
 ## Use the CLI directly
 
 Choose the mode that matches the request.
@@ -247,7 +197,9 @@ Enter the current source fingerprint in the review. Give each criterion a verdic
 
 ## Use an existing Codex or RubyMine session
 
-Use the existing agent if it can read project files and run terminal commands. Point it to the installed `.harness/docs/WORKFLOW.md`. The agent uses the direct CLI commands to read the questions, record your answers, and run checks. Continue speaking to the agent as usual. This route uses the model and permissions of that session. [Project agent setup](docs/AGENT_ADAPTER.md#use-another-project-agent)
+Use the existing agent if it can read project files and run terminal commands. Point it to the installed `.harness/docs/WORKFLOW.md`. The agent uses the direct CLI commands to read the questions, record your answers, and run checks. Use the regular chat in that session. It uses the session’s model and permissions. It needs no Workbench server. [Project agent setup](docs/AGENT_ADAPTER.md#use-another-project-agent)
+
+[Optional Workbench chat setup](docs/AGENT_ADAPTER.md#start-a-task-through-chat) explains how to start a separate Workbench-managed session.
 
 ## Read evidence from past runs
 
