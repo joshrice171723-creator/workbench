@@ -1,0 +1,68 @@
+APEX Workbench 0.2.1
+
+Run ruby bin/harness from the extracted package. After installation, run
+ruby .harness/bin/harness from the project. Replace PATH, ID and other
+uppercase arguments with your values. Use --project . for the current project.
+
+SETUP
+  harness setup init --project PATH
+  harness setup discover --project PATH
+  harness setup configure --project PATH --file CONFIG.json
+  harness setup inspect-engine --project PATH --file ENGINE.json
+  harness setup check-engine --project PATH
+
+MODES
+  harness audit|refactor|feature|build --project PATH --action TEXT --scope TEXT [--file DECISIONS.json]
+  harness internal questions --project PATH
+  harness internal answer QUESTION OPTION --project PATH
+
+Audit inspects source. Refactor preserves behavior. Feature changes the agreed
+behavior. Build uses requirements you supply. Supply explicit decisions for
+each task. Suggestions grant no permission. Allow schema changes only for
+app-owned schema within the agreed scope.
+
+TASK
+  harness task status|prompt|verify|report --project PATH
+  harness internal run NAME --phase baseline|after --project PATH
+  harness internal benchmark --phase baseline|after --project PATH
+  harness internal review --project PATH --file REVIEW.json
+  harness task repair-round --project PATH --reason TEXT
+  harness task pause|stop --project PATH --reason TEXT
+  harness task resume --project PATH --id ID
+  harness task finish --project PATH
+
+RUNS
+  harness runs list --project PATH
+  harness runs show ID --project PATH
+  harness runs compare ID ID --project PATH
+
+UI AND CHAT
+  harness ui --project PATH [--port PORT] [--codex EXECUTABLE]
+  harness chat --project PATH --message TEXT [--url http://127.0.0.1:PORT]
+
+Run the UI server first. Open its printed local address or send one chat
+message from a second terminal. Chat connects to port 8792 by default.
+
+  /help                    Return this help.
+  /setup                   Install the layer in the selected project.
+  /discover                Inspect project command candidates.
+  audit ACTION             Begin task intake. Other modes use the same form.
+  /cancel-setup            Cancel intake before task creation.
+  /status, /runs           Inspect the task or list run IDs.
+  /restrict ID QUOTE       Use an exact restriction from this task. For a
+                           project decision file, enter ID @FILE | QUOTE.
+  /pause REASON            Pause the active task.
+  /stop REASON             Stop the active task.
+  /resume [ID]             Resume a paused or stopped task.
+  /check NAME baseline     Start a configured check. Use after for final checks.
+  /benchmark baseline      Start the frozen benchmark. Use after to repeat it.
+  /repair REASON           Record a repair round.
+  /verify, /report         Verify current evidence or record a report.
+  /finish                  Complete a task with passing checks and review.
+
+Reply to each intake question with a displayed option. Once the agreement is
+complete, ordinary messages reach the configured Codex agent. Read the actual
+response and check receipts before reporting success.
+
+See .harness/docs/WORKFLOW.md for setup, engine pins, checks and task history.
+See .harness/docs/AGENT_ADAPTER.md for chat setup, permissions and transcripts.

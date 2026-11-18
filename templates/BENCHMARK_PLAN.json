@@ -1,0 +1,24 @@
+{
+  "name": "REPLACE_WITH_PROJECT_BENCHMARK_NAME",
+  "version": "1.0.0",
+  "cases": [
+    {
+      "name": "REPLACE_WITH_REAL_OPERATION",
+      "caller": "REPLACE_WITH_NORMAL_CALLER",
+      "starting_state": "Describe the required initial state.",
+      "fixture": "Describe synthetic inputs and the reset procedure.",
+      "expected_results": "State exact outcomes and side effects.",
+      "sizes": {
+        "baseline": "Define the small workload.",
+        "unrelated_growth": "Keep the result fixed and increase unrelated records.",
+        "relevant_growth": "Increase required work and state the new expected result."
+      },
+      "samples": 3
+    }
+  ],
+  "workload": "Describe source population, maintenance, retries, setup exclusions, and controlled external services.",
+  "metrics": ["Select relevant measurable costs and their units."],
+  "assertions": ["Define correctness assertions independent of the proposed optimization."],
+  "checks": [],
+  "scripts": []
+}

@@ -1,0 +1,9 @@
+require_relative "../lib/harness"
+require_relative "../lib/workbench"
+if %w[ui chat].include?(ARGV.first)
+  command = ARGV.shift
+  script = command == "ui" ? File.expand_path("../server.py", __dir__) : File.expand_path("agent_bridge.py", __dir__)
+  abort "The #{command} connector is not installed" unless File.file?(script)
+  exec([ENV.fetch("HARNESS_PYTHON", "python"), ENV.fetch("HARNESS_PYTHON", "python")], script, *ARGV)
+end
+exit HarnessCLI.new(ARGV).call

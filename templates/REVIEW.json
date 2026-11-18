@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "snapshot_sha256": "COPY_THE_CURRENT_STATUS_FINGERPRINT",
+  "verdict": "revise",
+  "author": "agent",
+  "criteria": [
+    {"id": "correctness", "verdict": "unverified", "evidence": []},
+    {"id": "human_readability", "verdict": "unverified", "evidence": []},
+    {"id": "maintainability", "verdict": "unverified", "evidence": []},
+    {"id": "performance", "verdict": "unverified", "evidence": []},
+    {"id": "failure_handling", "verdict": "unverified", "evidence": []},
+    {"id": "scope_and_constraints", "verdict": "unverified", "evidence": []}
+  ]
+}
