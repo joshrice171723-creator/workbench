@@ -10,17 +10,33 @@ Use the bundled engineering instructions or pin a different coding harness. The 
 ## How it works
 
 ```mermaid
-flowchart LR
-    CLI["Terminal commands"] --> Workflow["Ruby task workflow"]
-    Chat["Terminal chat"] --> Server["Local Python server"]
+flowchart TD
+    CLI["CLI command"] --> Workflow["Ruby task workflow"]
+    Chat["Chat command"] --> Server["Local chat server"]
     Server --> Workflow
-    Server --> Codex["Codex CLI"]
-    Workflow --> Records["Project .harness records"]
-    Engine["Pinned engineering instructions"] --> Agreement["Task agreement"]
+    Engine["Pinned coding harness"] --> Agreement["Record the task agreement"]
     Workflow --> Agreement
-    Agreement --> Codex
-    Checks["Project checks and benchmarks"] --> Records
+    Agreement --> Baseline["Request baseline checks and any configured benchmark"]
+    Baseline --> Work["Run scoped work with Codex or the CLI task prompt"]
+    Work --> Final["Request final checks and any configured benchmark"]
+    Final --> Review{"Do required checks and review pass?"}
+    Review -->|Yes| Finish["Verify, report, and finish"]
+    Review -->|No| Limit{"Is another repair round available?"}
+    Limit -->|Yes| Repair["Record the finding and request a repair"]
+    Repair --> Work
+    Limit -->|No| Stop["Stop and report the remaining findings"]
+    Baseline -.-> Records["Project .harness records"]
+    Final -.-> Records
+    Finish -.-> Records
 ```
+
+The diagram shows the task sequence. Chat and CLI call the same checks. Each check or benchmark starts when you or the agent runs its command. Workbench records the results and counts repair rounds. The default limit is three.
+
+### Proposed score target
+
+A project could set a target such as **90/100** before the first run. Workbench would record the starting score, run the same benchmark after each repair, and keep the evidence for every round. It would finish when the score meets the target and every required correctness check and review passes. It would stop at the repair limit and report any unmet target. The project would supply the benchmark and score. The independent Appointment Flow benchmark would stay outside this loop.
+
+The current release records the checks and repair rounds. It has no automatic score target or automatic retry on a low score.
 
 | Part | Responsibility |
 | --- | --- |
