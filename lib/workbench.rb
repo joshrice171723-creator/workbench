@@ -243,6 +243,11 @@ module WorkbenchCommands
       report = current_status
       raise "Task cannot finish: " + report["issues"].join("; ") unless report["verdict"] == "pass"
       write_lifecycle("completed", "All recorded completion gates passed")
+    when "task-audit-limit"
+      raise "Only an active audited task can reach its limit" unless status == "active" && @task.dig("execution", "workflow") == "audited"
+      reason = @options[:reason].to_s.strip
+      raise "Supply the unresolved finding" if reason.empty?
+      write_lifecycle("stopped", reason, cause: "repair_limit")
     when "task-pause", "task-stop"
       reason = @options[:reason].to_s.strip
       raise "Supply --reason with the user decision" if reason.empty?

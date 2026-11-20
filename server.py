@@ -94,6 +94,9 @@ class Workbench:
                 answer_sources[record["question"]] = record.get("source", {"kind": "unrecorded"})
         task.update(answers=answers, answer_sources=answer_sources, lifecycle=recorded_lifecycle(folder))
         task['status'] = task['lifecycle']['status']
+        if task.get("execution", {}).get("workflow") == "audited":
+            loop = read_json(home / "loops" / task_id / "state.json", {})
+            task["loop_stage"] = loop.get("stage")
         return task
 
     def busy(self):
@@ -287,11 +290,13 @@ class Workbench:
                 routed = ChatWorkflow(self).route(message)
                 task = self.active()
                 if task and task.get("execution", {}).get("workflow") == "audited" and task["status"] == "active":
-                    agreed = routed and routed.get("response", "").startswith("Agreement recorded.")
+                    agreed = routed and routed.get("agreement_complete")
                     if routed is None or agreed:
                         self.require_success(self.cli(["task", "prompt", "--id", task["id"]]))
                         folder = self.project / ".harness/loops" / task["id"]
                         state = read_json(folder / "state.json", {})
+                        if state.get("stage") == "question" and message.strip() in {"/run", "/continue"}:
+                            return ChatWorkflow(self).reply(message, state["question"], task["id"])
                         answer = message if state.get("stage") == "question" else None
                         if not agreed and not answer and message.strip() not in {"/run", "/continue"}:
                             return ChatWorkflow(self).reply(message, "Send /run to start or continue the audited task.",

@@ -26,14 +26,20 @@ class FakeRuntime:
         self.fail_check = False
         self.change_source = False
         self.finished = False
+        self.stopped = False
+        self.verify_issues = []
 
     def cli(self, args, required=True):
+        if args[:2] == ["task", "verify"] and self.verify_issues:
+            return CompletedProcess(args, 1, stdout=json.dumps({"issues": [self.verify_issues.pop()]}), stderr="")
+        if args[:2] == ["task", "audit-limit"]:
+            self.stopped = True
         if args[:2] == ["task", "finish"]:
             self.finished = True
         return CompletedProcess(args, 0, stdout="agreement", stderr="")
 
     def status(self):
-        return {"snapshot_sha256": str(self.source), "lifecycle": {"status": "active"}}
+        return {"snapshot_sha256": str(self.source), "lifecycle": {"status": "stopped" if self.stopped else "active"}}
 
     def agent(self, stage, prompt, write=False):
         self.calls.append(stage)
@@ -117,6 +123,15 @@ class Routes(unittest.TestCase):
         self.assertIn("Stopped", run(self.rt))
         self.assertFalse(self.rt.finished)
         self.assertEqual(self.rt.calls.count("plan"), 4)
+        self.assertTrue(self.rt.stopped)
+        self.assertIn("Stopped", run(self.rt))
+
+    def test_final_verification_finding_returns_to_build_and_audits_again(self):
+        self.rt.verify_issues = ["Forbidden dependencies change: Gemfile"]
+        run(self.rt)
+        self.assertEqual(self.rt.calls.count("final_review"), 2)
+        self.assertEqual(self.rt.calls.count("build_review"), 2)
+        self.assertTrue(self.rt.finished)
 
 
 class InstalledWorkflow(unittest.TestCase):
@@ -168,3 +183,76 @@ class InstalledWorkflow(unittest.TestCase):
                 history = json.loads(cli("runs", "show", tid).stdout)
                 self.assertEqual([r["stage"] for r in history["audits"]], ["plan_review","build_review","final_review"])
                 self.assertEqual(history["ledger"]["verdict"], "pass")
+
+
+class ChatWorkflowIntegration(unittest.TestCase):
+    """Real chat handler, child processes and Ruby checks with deterministic provider CLIs."""
+
+    def test_one_chat_reaches_final_report(self):
+        import os
+        import shutil
+        import sys
+        from unittest.mock import patch
+        from server import Workbench
+        if os.name == "nt" or not shutil.which("ruby"):
+            self.skipTest("Uses POSIX executable fixtures and Ruby")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            project = root / "app"
+            project.mkdir()
+            tools = root / "tools"
+            tools.mkdir()
+            codex = tools / "codex"
+            codex.write_text("#!" + sys.executable + "\n" + """
+import json, sys
+from pathlib import Path
+prompt = sys.stdin.read()
+if 'workspace-write' in sys.argv:
+    Path("result.txt").write_text("Austin")
+    msg = "Implemented the clinic selection."
+elif 'Austin' in prompt:
+    msg = json.dumps({"plan": "Write the selected clinic and check the result."})
+else:
+    msg = json.dumps({"question": "Which clinic?"})
+print(json.dumps({"type":"item.completed","item":{"type":"agent_message","text": msg}}))
+print(json.dumps({"type":"turn.completed"}))
+""")
+            muse = tools / "muse"
+            muse.write_text("#!" + sys.executable + "\n" + """
+import sys, json
+from pathlib import Path
+assert ':read-only' in sys.argv and '--session-id' not in sys.argv
+schema = json.loads(Path(sys.argv[sys.argv.index('--output-schema')+1]).read_text())
+reply = {"verdict":"pass","reason":"Reviewed task evidence."}
+if 'criteria' in schema['properties']:
+    assert Path("result.txt").read_text() == "Austin"
+    template = json.loads(Path(".harness/templates/REVIEW.json").read_text())
+    reply["criteria"] = [dict(id=c["id"], verdict="pass", evidence=["result.txt"], reason="checked")
+                         for c in template["criteria"]]
+print(json.dumps(reply))
+""")
+            for exe in [muse, codex]:
+                exe.chmod(0o755)
+            app = Workbench(project, executable=str(codex))
+            self.addCleanup(app.pool.shutdown)
+            app.post("/api/setup", {"action": "install"})
+            settings = read(project / ".harness/project.json")
+            settings["execution"]["workflow"] = "audited"
+            settings["checks"] = [dict(name="behavior", required=True, benchmark=False, phases=["after"],
+                                       argv=[sys.executable, "-c", "assert open('result.txt').read() == 'Austin'"])]
+            app.post("/api/setup", {"action":"configure", "config":settings})
+            with patch.dict(os.environ, {"APEX_MUSE_EXECUTABLE":str(muse)}):
+                for text in ["build Record the clinic", "result.txt", "confirmed", "allow_scoped",
+                             "deny", "deny", "confirmed"]:
+                    reply = app.post("/api/chat", {"message": text})
+                first = app.jobs[reply["id"]].wait(60)
+                self.assertEqual(first["response"], "Which clinic?", first)
+                self.assertEqual(app.active()["loop_stage"], "question")
+                self.assertEqual(app.post("/api/chat", {"message": "/run"})["response"], "Which clinic?")
+                reply = app.post("/api/chat", {"message":"Austin"})
+                result = app.jobs[reply["id"]].wait(60)
+            self.assertEqual(result["state"], "completed", result)
+            for evidence in ["Implemented the clinic", "Passed: run behavior", "Final audit", "Verified source:"]:
+                self.assertIn(evidence, result["response"])
+            self.assertEqual(app.active()["status"], "completed")
+            self.assertEqual(app.active()["loop_stage"], "completed")
