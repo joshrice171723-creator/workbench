@@ -29,7 +29,7 @@ module WorkbenchCommands
       FileUtils.cp_r(origin, @home) if File.directory?(origin)
     end
     FileUtils.mkdir(File.join(@home, "bin"))
-    %w[bin/harness bin/agent_bridge.py agent_adapter.py chat_workflow.py server.py].each do |name|
+    %w[bin/harness bin/agent_bridge.py audited_flow.py quick_bench.py workflow_job.py test_audited_flow.py agent_adapter.py chat_workflow.py server.py].each do |name|
       FileUtils.cp(File.join(runtime_root, name), File.join(@home, name))
     end
     config = read(File.join(@home, "config/project.example.json"))
@@ -49,6 +49,26 @@ module WorkbenchCommands
   end
 
   def dispatch
+    if @command == "freeze-agreement"
+      load_task
+      require_agreement
+      pin_execution_config
+      output("frozen" => true)
+      return 0
+    end
+    if @command == "audit-step"
+      load_task
+      require_agreement
+      data = read(File.expand_path(@options.fetch(:file), @project))
+      raise "Invalid audit stage" unless %w[plan_review build_review final_review].include?(data["stage"])
+      raise "Invalid audit verdict" unless %w[pass replan repair].include?(data["verdict"])
+      raise "Audit needs a finding or evidence" if data["reason"].to_s.strip.empty?
+      raise "Missing plan fingerprint" unless data["plan_sha256"].to_s.match?(/\A[0-9a-f]{64}\z/)
+      raise "Stale audit" unless data["snapshot_sha256"] == source_snapshot["snapshot_sha256"]
+      immutable(File.join(@task_dir, "audits", unique_id + ".json"), data)
+      output(data)
+      return 0
+    end
     return configure_project if @command == "configure"
     return inspect_engine if @command == "inspect-engine"
     if @command == "check-engine"
@@ -119,6 +139,11 @@ module WorkbenchCommands
     execution = candidate.fetch("execution", { "max_repair_rounds" => 3 })
     limit = execution["max_repair_rounds"]
     raise "max_repair_rounds must be an integer from 1 to 20" unless limit.is_a?(Integer) && (1..20).cover?(limit)
+    if execution.key?("workflow") && !%w[manual audited].include?(execution["workflow"])
+      raise "Set execution.workflow to manual or audited"
+    end
+    vaults = execution.fetch("vaults", [])
+    raise "vaults must be an array of directory names" unless vaults.is_a?(Array) && vaults.all? { |path| path.is_a?(String) && !path.strip.empty? }
     candidate["execution"] = execution
     agent = candidate["agent"]
     unless agent.is_a?(Hash) && agent["model"].is_a?(String) && !agent["model"].strip.empty? && %w[low medium high xhigh].include?(agent["effort"])
@@ -284,6 +309,23 @@ module WorkbenchCommands
     raise "Task is completed. Start a new task before implementation or checks." if lifecycle["status"] == "completed"
   end
 
+  def completion_issues(snapshot)
+    issues = super
+    return issues unless @task.dig("execution", "workflow") == "audited"
+    rows = matching_paths(@task_dir, "audits/*.json").sort.map { |path| read(path) }
+    plan = rows.rindex { |row| row["stage"] == "plan_review" }
+    recent = plan ? rows.drop(plan) : []
+    build = recent.reverse.find { |row| row["stage"] == "build_review" }
+    final = recent.last
+    same_source = [build, final].all? { |row| row && row["snapshot_sha256"] == snapshot["snapshot_sha256"] }
+    same_plan = recent.any? && [build, final].all? { |row| row && row["plan_sha256"] == recent.first["plan_sha256"] }
+    passed = [recent.first, build, final].all? { |row| row && row["verdict"] == "pass" }
+    unless same_source && same_plan && passed && final["stage"] == "final_review"
+      issues << "The reviewed plan, build audit and final audit must pass for the current work"
+    end
+    issues
+  end
+
   def current_status
     state = lifecycle
     if state["status"] == "unverified"
@@ -291,6 +333,9 @@ module WorkbenchCommands
         "verdict" => "unverified", "issues" => [state["reason"]], "artifact_directory" => @task_dir)
     end
     report = super
+    if @task.dig("execution", "workflow") == "audited"
+      report["semantic_review"] = "Muse audits and agent-authored criteria are recorded separately from project checks."
+    end
     report.merge("lifecycle" => state, "repair_rounds" => repair_rounds,
                  "max_repair_rounds" => repair_limit,
                  "artifact_directory" => @task_dir)
@@ -345,6 +390,7 @@ module WorkbenchCommands
                      "repair_rounds" => matching_paths(dir, "repair_rounds/*.json").sort.map { |path| read(path) },
                      "answers" => matching_paths(dir, "answers/*.json").sort.map { |path| read(path) },
                      "checks" => check_receipts,
+                     "audits" => matching_paths(dir, "audits/*.json").sort.map { |path| read(path) },
                      "reviews" => matching_paths(dir, "reviews/*.json").sort.map { |path| read(path) },
                      "reports" => matching_paths(dir, "reports/*.json").sort.map { |path| read(path) })
       end

@@ -9,7 +9,7 @@ require "time"
 require "tmpdir"
 
 class HarnessCLI
-  VERSION = "0.2.1"
+  VERSION = "0.3.0"
   MODES = %w[audit refactor feature build].freeze
   CRITERIA = %w[correctness human_readability maintainability performance failure_handling scope_and_constraints].freeze
   CACHES = %w[.harness .git node_modules vendor .bundle .cache .next .vite .parcel-cache coverage dist build tmp log __pycache__].freeze

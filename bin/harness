@@ -1,5 +1,12 @@
 require_relative "../lib/harness"
 require_relative "../lib/workbench"
+if %w[loop bench].include?(ARGV.first)
+  command = ARGV.shift
+  abort "Use bench quick" if command == "bench" && ARGV.shift != "quick"
+  script = command == "loop" ? "audited_flow.py" : "quick_bench.py"
+  python = ENV.fetch("HARNESS_PYTHON", "python")
+  exec([python, python], File.expand_path("../" + script, __dir__), *ARGV)
+end
 if %w[ui chat].include?(ARGV.first)
   command = ARGV.shift
   script = command == "ui" ? File.expand_path("../server.py", __dir__) : File.expand_path("agent_bridge.py", __dir__)

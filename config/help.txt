@@ -66,3 +66,10 @@ response and check receipts before reporting success.
 
 See .harness/docs/WORKFLOW.md for setup, engine pins, checks and task history.
 See .harness/docs/AGENT_ADAPTER.md for chat setup, permissions and transcripts.
+
+Audited workflow (enable execution.workflow=audited before task creation):
+  harness loop --project .              Start or resume the coordinator.
+  harness loop --project . --status     Show the stage and history.
+  harness loop --project . --answer TEXT
+  harness bench quick --project .       Time the configured assessment replay.
+  /run                                  Continue an audited task in chat.

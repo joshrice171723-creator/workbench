@@ -58,7 +58,7 @@ class WorkbenchTest < Minitest::Test
 
   def test_install_pins_generic_engine_and_preserves_existing_rules
     result = installed
-    assert_equal "0.2.1", result["version"]
+    assert_equal "0.3.0", result["version"]
     assert_equal "Keep this rule.\n", File.read(File.join(@project, "AGENTS.md"))
     settings = JSON.parse(File.read(config))
     assert_equal "gpt-6.2-astra", settings.dig("agent", "model")
@@ -73,7 +73,7 @@ class WorkbenchTest < Minitest::Test
       task = started(mode)
       detail = JSON.parse(ok("runs", "show", task["task_id"]))
       assert_equal mode, detail["task"]["mode"]
-      assert_equal "0.2.1", detail["task"]["harness_version"]
+      assert_equal "0.3.0", detail["task"]["harness_version"]
       assert_equal "gpt-6.2-astra", detail.dig("task", "agent", "model")
       ok("task", "stop", "--reason", "User ended this test task")
     end
