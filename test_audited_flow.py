@@ -210,7 +210,7 @@ prompt = sys.stdin.read()
 if 'workspace-write' in sys.argv:
     Path("result.txt").write_text("Austin")
     msg = "Implemented the clinic selection."
-elif 'Austin' in prompt:
+elif '"answers": [["Which clinic?", "Austin"]]' in prompt:
     msg = json.dumps({"plan": "Write the selected clinic and check the result."})
 else:
     msg = json.dumps({"question": "Which clinic?"})
