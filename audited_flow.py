@@ -115,8 +115,17 @@ class Runtime:
         with tempfile.TemporaryDirectory(dir=self.folder) as tmp:
             path = Path(tmp) / "review.txt"
             path.write_text(prompt, encoding="utf-8")
+            schema = Path(tmp) / "verdict.schema.json"
+            verdicts = ["pass", "replan"] if stage == "plan_review" else ["pass", "replan", "repair"]
+            fields = {"verdict": {"type": "string", "enum": verdicts}, "reason": {"type": "string"}}
+            if stage == "final_review":
+                criterion = {"id": {"type": "string"}, "verdict": {"type": "string"},
+                             "evidence": {"type": "array", "items": {"type": "string"}}, "reason": {"type": "string"}}
+                fields["criteria"] = {"type": "array", "items": {"type": "object", "properties": criterion,
+                                      "required": list(criterion), "additionalProperties": False}}
+            save(schema, {"type": "object", "properties": fields, "required": list(fields), "additionalProperties": False})
             cmd = [os.environ.get("APEX_MUSE_EXECUTABLE", "muse"), "exec", "--permission-profile",
-                   ":read-only", "--prompt-file", str(path)]
+                   ":read-only", "--output-schema", str(schema), "--prompt-file", str(path)]
             proc = subprocess.run(cmd, stdin=subprocess.DEVNULL, cwd=self.project,
                                   capture_output=True, text=True, encoding="utf-8")
             if proc.returncode:
@@ -137,19 +146,36 @@ def checkpoint(rt, state, stage, detail=None):
     save(rt.folder / "state.json", state)
 
 
+def completion_report(state):
+    build = state.get("build_summary") or "No builder summary was recorded."
+    checks = [f"- {'Passed' if row['ok'] else 'Failed'}: {' '.join(row['command'][1:])}"
+              for row in state.get("checks", []) if "command" in row]
+    return "\n".join(["Completed.", build, "", "Final checks", *checks, "",
+                      "Final audit", state["summary"], "", "Verified source: " + state["final_snapshot"]])
+
+
+def stop_at_limit(rt, state, reason):
+    if rt.status()["lifecycle"]["status"] == "active":
+        rt.cli(["task", "audit-limit", "--reason", reason])
+    state["finding"] = reason
+    checkpoint(rt, state, "stopped", reason)
+
+
 def return_to(rt, state, stage, action, reason):
     bucket = {"plan_review": "planning", "build_review": "build", "final_review": "audit"}[stage]
     count = state["returns"].get(bucket, 0)
     limit = rt.task["execution"]["max_repair_rounds"] if bucket == "build" else 3
     state["finding"] = reason
     if count >= limit:
-        checkpoint(rt, state, "stopped", reason)
+        stop_at_limit(rt, state, reason)
         return
     if action == "repair":
         result = rt.cli(["task", "repair-round", "--reason", reason], required=False)
         if result.returncode:
-            checkpoint(rt, state, "stopped", result.stderr or reason)
-            return
+            if rt.status()["lifecycle"].get("cause") == "repair_limit":
+                stop_at_limit(rt, state, reason)
+                return
+            raise ValueError(result.stderr or "Could not record repair")
     state["returns"][bucket] = count + 1
     checkpoint(rt, state, "plan" if action == "replan" else "build", reason)
 
@@ -159,11 +185,15 @@ def run(rt, answer=None):
         path = rt.folder / "state.json"
         state = read(path) if path.exists() else {"stage": "plan", "history": [], "answers": [],
                                                   "returns": {}, "finding": "", "baseline": False}
+        if not path.exists():
+            checkpoint(rt, state, "plan")
         if state["stage"] == "completed":
-            return "Completed. " + state["summary"]
+            return completion_report(state)
         if state["stage"] == "finish" and rt.status()["lifecycle"]["status"] == "completed":
             checkpoint(rt, state, "completed")
-            return "Completed. " + state["summary"]
+            return completion_report(state)
+        if state["stage"] == "stopped":
+            return "Stopped at the repair limit. " + state["finding"]
         agreement = rt.cli(["task", "prompt"]).stdout
         if state["stage"] == "building":
             checkpoint(rt, state, "checks", "Interrupted builder. Check and audit actual source before any repair.")
@@ -181,7 +211,7 @@ def run(rt, answer=None):
             status = rt.status()
             if status["lifecycle"]["status"] == "completed" and stage == "finish":
                 checkpoint(rt, state, "completed")
-                return state["summary"]
+                return completion_report(state)
             if status["lifecycle"]["status"] != "active":
                 raise ValueError("Task must be active")
             if (rt.home / "active_task").read_text().strip() != rt.id:
@@ -218,9 +248,12 @@ def run(rt, answer=None):
                 checkpoint(rt, state, "build", rows)
             elif stage == "build":
                 rt.cli(["task", "prompt"])
-                write = rt.task["mode"] != "audit" and any(
-                    read(p).get("question") == "code_changes" and read(p).get("option") == "allow_scoped"
-                    for p in (rt.record / "answers").glob("*.json"))
+                decisions = {}
+                for record in sorted((rt.record / "answers").glob("*.json")):
+                    entry = read(record)
+                    if entry.get("question") == "code_changes":
+                        decisions["code_changes"] = entry["option"]
+                write = rt.task["mode"] != "audit" and decisions.get("code_changes") == "allow_scoped"
                 checkpoint(rt, state, "building")
                 try:
                     state["build_summary"] = rt.agent(stage, agreement +
@@ -274,10 +307,18 @@ def run(rt, answer=None):
                 if snap != state["final_snapshot"]:
                     checkpoint(rt, state, "checks", "Source changed after final audit")
                     continue
-                rt.cli(["task", "verify"])
+                verify = rt.cli(["task", "verify"], required=False)
+                if verify.returncode:
+                    # The CLI can identify issues the reviewer missed, including a forbidden dependency change.
+                    evidence = json.loads(verify.stdout) if verify.stdout.strip() else {}
+                    issues = evidence.get("issues")
+                    if not issues:
+                        raise ValueError(verify.stderr or "Verification failed")
+                    return_to(rt, state, "final_review", "repair", "; ".join(issues))
+                    continue
                 rt.cli(["task", "finish"])
                 checkpoint(rt, state, "completed")
-                return "Completed. " + state["summary"]
+                return completion_report(state)
             else:
                 raise ValueError(f"Unknown stage: {stage}")
 
@@ -302,10 +343,12 @@ def main():
         print(json.dumps(read(path) if path.exists() else {"stage": "plan"}))
     else:
         print(run(rt, args.answer))
+        if read(rt.folder / "state.json")["stage"] == "stopped":
+            return 1
 
 
 if __name__ == "__main__":
     try:
-        main()
+        sys.exit(main())
     except (OSError, KeyError, ValueError, RuntimeError) as exc:
         sys.exit(f"Audited workflow: {exc}")

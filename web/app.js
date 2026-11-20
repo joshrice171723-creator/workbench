@@ -186,6 +186,20 @@
       card.append(group);
     }
     card.append(btn("Add another check", () => { checks.push(makeCheck()); rawConfig = null; render(); }));
+    const workflow = select([{ value: "manual", label: "Manual" }, { value: "audited", label: "Codex with Muse audits" }], setupDraft.execution?.workflow || "manual");
+    const vaults = textarea(arr(setupDraft.execution?.vaults).join("\n"));
+    const vaultField = field("Obsidian folders", vaults, "Optional. Enter one project or shared folder per line.");
+    vaultField.hidden = workflow.value !== "audited";
+    workflow.addEventListener("change", () => {
+      setupDraft.execution = { ...setupDraft.execution, workflow: workflow.value };
+      vaultField.hidden = workflow.value !== "audited";
+      rawConfig = null;
+    });
+    vaults.addEventListener("input", () => {
+      setupDraft.execution = { ...setupDraft.execution, vaults: vaults.value.split("\n").map(s => s.trim()).filter(Boolean) };
+      rawConfig = null;
+    });
+    card.append(field("Task workflow", workflow), vaultField);
     const rounds = input(setupDraft.execution?.max_repair_rounds ?? 3, "number");
     rounds.min = "1"; rounds.max = "20";
     rounds.addEventListener("input", () => {
@@ -312,6 +326,13 @@
     card.append(compose); layout.append(card);
     const side = node("aside", "chat-side"), current = node("section", "card pad");
     add(current, heading("Current task", pill(taskStatus())), node("p", "", task()?.action || "No task selected.")); if (task()) add(current, node("p", "mono", task().id), node("p", "small-text", `Mode: ${task().mode}`));
+    if (task()?.execution?.workflow === "audited" && task().loop_stage) {
+      const labels = { plan: "Drafting the plan", question: "Waiting for your answer", plan_review: "Muse plan audit",
+        baseline: "Baseline checks", build: "Ready to build", building: "Codex build", checks: "Project checks",
+        build_review: "Muse build audit", final_review: "Muse final audit", finish: "Final verification",
+        completed: "Completed", stopped: "Repair limit reached" };
+      current.append(fact("Workflow stage", labels[task().loop_stage] || task().loop_stage));
+    }
     if (taskStatus() === "unverified") current.append(node("p", "", task().lifecycle.reason));
     if (task() && Object.keys(task().answers || {}).length) {
       const decisions = node("details");

@@ -1,6 +1,6 @@
 # Codex and Muse workflow
 
-Install Workbench in the project and configure real project checks as in the README. Select the audited workflow **before** starting a new feature or build task. In the complete project configuration set the following execution fields. Omit vaults or use an empty array when starting without notes.
+Install Workbench in the project and configure real project checks as in the README. Select the audited workflow **before** starting a new feature or build task. In Project setup, choose **Codex with Muse audits**, enter any Obsidian folders, and save the configuration. The equivalent execution fields in the full configuration are shown below. Omit vaults or use an empty array when starting without notes.
 
 ```json
 "execution": {
@@ -10,9 +10,9 @@ Install Workbench in the project and configure real project checks as in the REA
 }
 ```
 
-Use a signed-in Codex CLI and Meta Muse Code with headless `exec`, `--prompt-file`, and the `:read-only` permission profile. Set `APEX_CODEX_EXECUTABLE` or `APEX_MUSE_EXECUTABLE` to select a local executable. Both providers receive the selected note passages. Choose vault folders containing material appropriate for the task. Paths are relative to the project or absolute. Record measurable targets as assertions in configured project checks. For a new app use required after-only checks for new behavior.
+Use a signed-in Codex CLI and Meta Muse Code with headless `exec`, `--prompt-file`, `--output-schema`, and the `:read-only` permission profile. Set `APEX_CODEX_EXECUTABLE` or `APEX_MUSE_EXECUTABLE` to select a local executable. Both providers receive the selected note passages. Choose vault folders containing material appropriate for the task. Paths are relative to the project or absolute. Record measurable targets as assertions in configured project checks. For a new app use required after-only checks for new behavior.
 
-Start the task in Workbench chat and answer the existing task agreement. The last agreement answer starts the coordinator. Answer any business question in that chat. Use `/run` to continue a ready task or retry an interrupted review. An existing agent chat can drive the same coordinator directly:
+Start the task in Workbench chat and answer the existing task agreement. The last agreement answer starts the coordinator. Chat shows the current stage. Answer any business question there. The final reply includes the builder summary, project check outcomes, final review, and verified source fingerprint. Use `/run` to continue a ready task or retry an interrupted review. An existing agent chat can drive the same coordinator directly:
 
 ```sh
 ruby .harness/bin/harness loop --project .

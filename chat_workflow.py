@@ -151,7 +151,8 @@ class ChatWorkflow:
             self.app.cli_with_json(["answer", question, "deny", "--answer-channel", "chat", "--id", task_id], source)
             missing = self.missing(self.app.active())
             followup = self.question_text(missing[0]) if missing else "Agreement recorded. Send a message to the coding agent."
-            return self.reply(message, "Restriction recorded for this task.\n" + followup, task_id)
+            return dict(self.reply(message, "Restriction recorded for this task.\n" + followup, task_id),
+                        agreement_complete=not missing)
         missing = self.missing(task)
         if missing:
             question = missing[0]
@@ -161,5 +162,5 @@ class ChatWorkflow:
                 return self.reply(message, self.question_text(question), task_id)
             self.app.require_success(self.app.cli(["answer", question["id"], match["id"], "--id", task_id, "--answer-channel", "chat"]))
             text = self.question_text(missing[1]) if len(missing) > 1 else "Agreement recorded. Send a message to the coding agent."
-            return self.reply(message, text, task_id)
+            return dict(self.reply(message, text, task_id), agreement_complete=len(missing) == 1)
         return None
