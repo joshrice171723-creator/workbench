@@ -9,27 +9,32 @@ Use the bundled engineering instructions or pin a different coding harness. The 
 
 ## How it works
 
+The optional Codex and Muse workflow uses one chat for discovery, planning, implementation, and the final result. [Setup, commands and assessment replay](docs/AUDITED_WORKFLOW.md)
+
 ```mermaid
 flowchart TD
-    CLI["CLI command"] --> Workflow["Ruby task workflow"]
-    Chat["Existing coding-agent session"] --> CLI
-    Engine["Pinned coding harness"] --> Agreement["Record the task agreement"]
-    Workflow --> Agreement
-    Agreement --> Baseline["Request baseline checks and any configured benchmark"]
-    Baseline --> Work["Run scoped work with Codex or the CLI task prompt"]
-    Work --> Final["Request final checks and any configured benchmark"]
-    Final --> Review{"Do required checks and review pass?"}
-    Review -->|Yes| Finish["Verify, report, and finish"]
-    Review -->|No| Limit{"Below the repair limit?<br/>3 rounds by default<br/>Configurable from 1 to 20"}
-    Limit -->|Yes| Repair["Record one repair round and request the fix"]
-    Repair --> Work
-    Limit -->|No| Stop["Stop the task and report the remaining findings"]
-    Baseline -.-> Records["Project .harness records"]
-    Final -.-> Records
-    Finish -.-> Records
+    Chat["Your chat and task agreement"] --> Plan["Codex plans and asks unresolved business questions"]
+    Vault["Project and shared Obsidian notes"] --> Plan
+    Plan --> P{"Muse plan audit"}
+    P -->|Replan| Plan
+    P -->|Pass| Base["Run applicable baseline checks once"]
+    Base --> Build["Codex builds or repairs"]
+    Build --> Check["Run project checks and compare targets"]
+    Check --> B{"Muse build audit"}
+    B -->|Requirements issue| Plan
+    B -->|Code issue or failed check| Build
+    B -->|Pass| F{"Fresh Muse final audit"}
+    F -->|Requirements issue| Plan
+    F -->|Code issue| Build
+    F -->|Pass| Report["Verify current evidence and report in your chat"]
+    P -.->|Limit reached| Stop["Report unresolved findings"]
+    B -.->|Limit reached| Stop
+    F -.->|Limit reached| Stop
 ```
 
-The CLI and your coding agent use the same checks. Each check or benchmark starts when you or the agent runs its command. Set `execution.max_repair_rounds` before starting the task. If checks still fail after the last allowed repair, Workbench stops the task when another repair round is requested.
+The manual workflow remains the default for existing configurations.
+
+In the manual workflow, the CLI and your coding agent use the same checks. Each check or benchmark starts when you or the agent runs its command. Set `execution.max_repair_rounds` before starting the task. If checks still fail after the last allowed repair, Workbench stops the task when another repair round is requested.
 
 ### Proposed score target
 

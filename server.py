@@ -16,6 +16,7 @@ import uuid
 
 from agent_adapter import AgentJob, capabilities
 from chat_workflow import ChatWorkflow
+from workflow_job import WorkflowJob
 
 ROOT = Path(__file__).resolve().parent
 
@@ -284,9 +285,22 @@ class Workbench:
                 if not isinstance(message, str) or not message.strip() or len(message) > 64000:
                     raise ValueError("Supply a message of 1 to 64000 characters.")
                 routed = ChatWorkflow(self).route(message)
+                task = self.active()
+                if task and task.get("execution", {}).get("workflow") == "audited" and task["status"] == "active":
+                    agreed = routed and routed.get("response", "").startswith("Agreement recorded.")
+                    if routed is None or agreed:
+                        self.require_success(self.cli(["task", "prompt", "--id", task["id"]]))
+                        folder = self.project / ".harness/loops" / task["id"]
+                        state = read_json(folder / "state.json", {})
+                        answer = message if state.get("stage") == "question" else None
+                        if not agreed and not answer and message.strip() not in {"/run", "/continue"}:
+                            return ChatWorkflow(self).reply(message, "Send /run to start or continue the audited task.",
+                                                            task["id"])
+                        job = WorkflowJob(self.project, task["id"], message, answer, self.executable)
+                        self.jobs[job.id] = job
+                        return job.snapshot()
                 if routed is not None:
                     return routed
-                task = self.active()
                 if not task:
                     raise ValueError("Create a task and answer its required questions before starting the agent.")
                 lifecycle = task.get("lifecycle", {}).get("status", "active")

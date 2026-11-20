@@ -1,0 +1,19 @@
+name: Workbench checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: ruby -Itest -r./test/cli_regression_test -r./test/workbench_test -e "nil"
+      - run: python -m unittest -v test_agent_adapter test_server test_audited_flow
+      - run: sha256sum -c MANIFEST.sha256
